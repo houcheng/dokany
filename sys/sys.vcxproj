@@ -1265,7 +1265,7 @@
     <ClCompile Include="dokan_utility.c" />
     <ClCompile Include="event.c" />
     <ClCompile Include="except.c" />
-    <ClCompile Include="fastio.c" />
+    <ClCompile Include="fastio.cpp" />
     <ClCompile Include="fileinfo.c" />
     <ClCompile Include="flush.c" />
     <ClCompile Include="fscontrol.c" />

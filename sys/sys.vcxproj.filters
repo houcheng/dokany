@@ -88,9 +88,6 @@
     <ClCompile Include="dokan_utility.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fastio.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="cache.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -98,6 +95,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CppSupport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="fastio.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

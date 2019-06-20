@@ -43,25 +43,6 @@ UNICODE_STRING FcbFileNameNull;
 
 FAST_IO_CHECK_IF_POSSIBLE DokanFastIoCheckIfPossible;
 
-// Temporary forward declaration
-BOOLEAN DokanFastIoQueryBasicInfo(_In_ struct _FILE_OBJECT *FileObject,
-                                  _In_ BOOLEAN Wait,
-                                  _Out_ PFILE_BASIC_INFORMATION Buffer,
-                                  _Out_ PIO_STATUS_BLOCK IoStatus,
-                                  _In_ struct _DEVICE_OBJECT *DeviceObject);
-BOOLEAN
-DokanFastIoQueryStandardInfo(_In_ struct _FILE_OBJECT *FileObject,
-                             _In_ BOOLEAN Wait,
-                             _Out_ PFILE_STANDARD_INFORMATION Buffer,
-                             _Out_ PIO_STATUS_BLOCK IoStatus,
-                             _In_ struct _DEVICE_OBJECT *DeviceObject);
-
-BOOLEAN DokanFastIoQueryNetworkOpenInfo(
-    _In_ struct _FILE_OBJECT *FileObject, _In_ BOOLEAN Wait,
-    _Out_ PFILE_NETWORK_OPEN_INFORMATION Buffer, _Out_ PIO_STATUS_BLOCK IoStatus,
-    _In_ struct _DEVICE_OBJECT *DeviceObject);
-
-
 BOOLEAN
 DokanFastIoCheckIfPossible(__in PFILE_OBJECT FileObject,
                            __in PLARGE_INTEGER FileOffset, __in ULONG Length,
@@ -373,7 +354,7 @@ Return Value:
     return STATUS_INSUFFICIENT_RESOURCES;
   }
 
-  initCache();
+  initCppSupport();
 
   DDbgPrint("<== DriverEntry\n");
 
@@ -419,6 +400,7 @@ Return Value:
   ExDeleteLookasideListEx(&g_DokanFCBLookasideList);
   ExDeleteLookasideListEx(&g_DokanEResourceLookasideList);
 
+  deleteCppGlobalObjects();
   DDbgPrint("<== DokanUnload\n");
 }
 

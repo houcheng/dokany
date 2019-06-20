@@ -48,8 +48,8 @@ int __cdecl atexit(
 #pragma warning(disable: 4091)
 #define NONPAGESECTION __declspec(code_seg("$kerneltext$"))
 
-void initCppSupport();
-void deleteCppGlobalObjects();
+extern "C" void initCppSupport();
+extern "C" void deleteCppGlobalObjects();
 
 #endif
 

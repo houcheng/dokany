@@ -35,7 +35,7 @@ typedef struct {
 } EXIT_FUNC_LIST, *PEXIT_FUNC_LIST;
 LIST_ENTRY exitList;
 
-void initCppSupport() {
+extern "C" void initCppSupport() {
     if (isCppInitialized) return;
     isCppInitialized = true;
 
@@ -72,7 +72,7 @@ void *cloneMemCopy(void *dst, void *src, size_t size) {
 //
 // Learned from github htscpp
 //
-void deleteCppGlobalObjects() {
+extern "C" void deleteCppGlobalObjects() {
     PEXIT_FUNC_LIST pFuncListEntry;
 
     while (!IsListEmpty(&exitList)) {

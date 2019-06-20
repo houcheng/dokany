@@ -28,6 +28,10 @@ with this program. If not, see <http://www.gnu.org/licenses/>.
 #ifndef DOKAN_H_
 #define DOKAN_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <ntifs.h>
 #include <ntdddisk.h>
 #include <ntstrsafe.h>
@@ -1081,22 +1085,28 @@ void OplockDebugRecordAtomicRequest(__in PDokanFCB Fcb);
 // Cache functions
 //
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void initCache();
+BOOLEAN DokanFastIoQueryBasicInfo(_In_ struct _FILE_OBJECT *FileObject,
+    _In_ BOOLEAN Wait,
+    _Out_ PFILE_BASIC_INFORMATION Buffer,
+    _Out_ PIO_STATUS_BLOCK IoStatus,
+    _In_ struct _DEVICE_OBJECT *DeviceObject);
+BOOLEAN DokanFastIoQueryStandardInfo(_In_ struct _FILE_OBJECT *FileObject,
+    _In_ BOOLEAN Wait,
+    _Out_ PFILE_STANDARD_INFORMATION Buffer,
+    _Out_ PIO_STATUS_BLOCK IoStatus,
+    _In_ struct _DEVICE_OBJECT *DeviceObject);
+BOOLEAN DokanFastIoQueryNetworkOpenInfo(_In_ struct _FILE_OBJECT *FileObject,
+    _In_ BOOLEAN Wait,
+    _Out_ PFILE_NETWORK_OPEN_INFORMATION Buffer,
+    _Out_ PIO_STATUS_BLOCK IoStatus,
+    _In_ struct _DEVICE_OBJECT *DeviceObject);
+    
+void initCppSupport();
+void deleteCppGlobalObjects();
 void addStandardInfoCache(PFILE_OBJECT fileObject,
                           PFILE_STANDARD_INFORMATION standardInformation);
-BOOL getStandardInfoCache(PFILE_OBJECT fileObject,
-                          PFILE_STANDARD_INFORMATION Buffer,
-                          PIO_STATUS_BLOCK IoStatus);
-
 void addBasicInfoCache(PFILE_OBJECT fileObject,
                        PFILE_BASIC_INFORMATION standardInformation);
-BOOL getBasicInfoCache(PFILE_OBJECT fileObject, PFILE_BASIC_INFORMATION Buffer,
-                       PIO_STATUS_BLOCK IoStatus);
-
 void addNetworkOpenInfoCache(PFILE_OBJECT fileObject,
                              PFILE_NETWORK_OPEN_INFORMATION information);
 BOOL getNetworkOpenInfoCache(PFILE_OBJECT fileObject,
