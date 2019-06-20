@@ -88,12 +88,27 @@
     <ClCompile Include="dokan_utility.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="fastio.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="cache.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="wstring.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CppSupport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dokan.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="public.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cache.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -111,8 +126,8 @@
     </Inf>
   </ItemGroup>
   <ItemGroup>
-    <MessageCompile Include="dokanfs_msg.mc">
+    <CustomBuild Include="dokanfs_msg.mc">
       <Filter>Driver Files</Filter>
-    </MessageCompile>
+    </CustomBuild>
   </ItemGroup>
 </Project>

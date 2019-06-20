@@ -344,6 +344,16 @@ VOID DokanCompleteQueryInformation(__in PIRP_ENTRY IrpEntry,
                 fileSize);
     }
   }
+  if (NT_SUCCESS(status) && irpSp->Parameters.QueryFile.FileInformationClass == 
+          FileBasicInformation ) {
+    addBasicInfoCache(IrpEntry->FileObject, (PFILE_BASIC_INFORMATION) buffer);
+  } else if (NT_SUCCESS(status) && irpSp->Parameters.QueryFile.FileInformationClass ==
+          FileStandardInformation) {
+    addStandardInfoCache(IrpEntry->FileObject, (PFILE_STANDARD_INFORMATION)buffer);
+  } else if (NT_SUCCESS(status) && irpSp->Parameters.QueryFile.FileInformationClass ==
+                 FileNetworkOpenInformation) {
+    addNetworkOpenInfoCache(IrpEntry->FileObject, (PFILE_NETWORK_OPEN_INFORMATION)buffer);
+  }
 
   DokanCompleteIrpRequest(irp, status, info);
 

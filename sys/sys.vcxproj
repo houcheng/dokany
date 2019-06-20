@@ -138,7 +138,7 @@
     <Configuration>Win8.1 Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">Win32</Platform>
     <RootNamespace>dokan</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'" Label="Configuration">
@@ -358,7 +358,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Win10 Debug|x64'" Label="Configuration">
-    <TargetVersion>Windows10</TargetVersion>
+    <TargetVersion>Windows7</TargetVersion>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
     <ConfigurationType>Driver</ConfigurationType>
@@ -1253,8 +1253,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="access.c" />
+    <ClCompile Include="cache.cpp" />
     <ClCompile Include="cleanup.c" />
     <ClCompile Include="close.c" />
+    <ClCompile Include="CppSupport.cpp" />
     <ClCompile Include="create.c" />
     <ClCompile Include="device.c" />
     <ClCompile Include="directory.c" />
@@ -1263,6 +1265,7 @@
     <ClCompile Include="dokan_utility.c" />
     <ClCompile Include="event.c" />
     <ClCompile Include="except.c" />
+    <ClCompile Include="fastio.c" />
     <ClCompile Include="fileinfo.c" />
     <ClCompile Include="flush.c" />
     <ClCompile Include="fscontrol.c" />
@@ -1275,8 +1278,10 @@
     <ClCompile Include="timeout.c" />
     <ClCompile Include="volume.c" />
     <ClCompile Include="write.c" />
+    <ClCompile Include="wstring.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cache.h" />
     <ClInclude Include="dokan.h" />
     <ClInclude Include="public.h" />
   </ItemGroup>

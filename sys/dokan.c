@@ -43,6 +43,25 @@ UNICODE_STRING FcbFileNameNull;
 
 FAST_IO_CHECK_IF_POSSIBLE DokanFastIoCheckIfPossible;
 
+// Temporary forward declaration
+BOOLEAN DokanFastIoQueryBasicInfo(_In_ struct _FILE_OBJECT *FileObject,
+                                  _In_ BOOLEAN Wait,
+                                  _Out_ PFILE_BASIC_INFORMATION Buffer,
+                                  _Out_ PIO_STATUS_BLOCK IoStatus,
+                                  _In_ struct _DEVICE_OBJECT *DeviceObject);
+BOOLEAN
+DokanFastIoQueryStandardInfo(_In_ struct _FILE_OBJECT *FileObject,
+                             _In_ BOOLEAN Wait,
+                             _Out_ PFILE_STANDARD_INFORMATION Buffer,
+                             _Out_ PIO_STATUS_BLOCK IoStatus,
+                             _In_ struct _DEVICE_OBJECT *DeviceObject);
+
+BOOLEAN DokanFastIoQueryNetworkOpenInfo(
+    _In_ struct _FILE_OBJECT *FileObject, _In_ BOOLEAN Wait,
+    _Out_ PFILE_NETWORK_OPEN_INFORMATION Buffer, _Out_ PIO_STATUS_BLOCK IoStatus,
+    _In_ struct _DEVICE_OBJECT *DeviceObject);
+
+
 BOOLEAN
 DokanFastIoCheckIfPossible(__in PFILE_OBJECT FileObject,
                            __in PLARGE_INTEGER FileOffset, __in ULONG Length,
@@ -223,6 +242,7 @@ Return Value:
   FS_FILTER_CALLBACKS filterCallbacks;
   PDOKAN_GLOBAL dokanGlobal = NULL;
 
+  DbgPrint("Dokan driver initialize\n");
   UNREFERENCED_PARAMETER(RegistryPath);
 
   DDbgPrint("==> DriverEntry ver.%x, %s %s\n", DOKAN_DRIVER_VERSION, __DATE__,
@@ -278,6 +298,11 @@ Return Value:
   fastIoDispatch->SizeOfFastIoDispatch = sizeof(FAST_IO_DISPATCH);
   fastIoDispatch->FastIoCheckIfPossible = DokanFastIoCheckIfPossible;
   // fastIoDispatch->FastIoRead = DokanFastIoRead;
+
+  fastIoDispatch->FastIoQueryBasicInfo = DokanFastIoQueryBasicInfo;
+  fastIoDispatch->FastIoQueryStandardInfo = DokanFastIoQueryStandardInfo;
+  fastIoDispatch->FastIoQueryNetworkOpenInfo = DokanFastIoQueryNetworkOpenInfo;
+
   fastIoDispatch->FastIoRead = FsRtlCopyRead;
   fastIoDispatch->FastIoWrite = FsRtlCopyWrite;
   fastIoDispatch->AcquireFileForNtCreateSection = DokanAcquireForCreateSection;
@@ -347,6 +372,8 @@ Return Value:
     ExDeleteLookasideListEx(&g_DokanFCBLookasideList);
     return STATUS_INSUFFICIENT_RESOURCES;
   }
+
+  initCache();
 
   DDbgPrint("<== DriverEntry\n");
 
@@ -435,12 +462,10 @@ VOID DokanNoOpRelease(__in PVOID Fcb) {
   DDbgPrint("<== DokanNoOpRelease\n");
 }
 
-NTSTATUS DokanCheckOplock(
-    __in PDokanFCB Fcb,
-    __in PIRP Irp,
-    __in_opt PVOID Context,
-    __in_opt POPLOCK_WAIT_COMPLETE_ROUTINE CompletionRoutine,
-    __in_opt POPLOCK_FS_PREPOST_IRP PostIrpRoutine) {
+NTSTATUS
+DokanCheckOplock(__in PDokanFCB Fcb, __in PIRP Irp, __in_opt PVOID Context,
+                 __in_opt POPLOCK_WAIT_COMPLETE_ROUTINE CompletionRoutine,
+                 __in_opt POPLOCK_FS_PREPOST_IRP PostIrpRoutine) {
   ASSERT(Fcb->Vcb != NULL);
   ASSERT(Fcb->Vcb->Dcb != NULL);
   if (Fcb->Vcb != NULL && Fcb->Vcb->Dcb != NULL &&
@@ -450,7 +475,6 @@ NTSTATUS DokanCheckOplock(
   }
   return STATUS_SUCCESS;
 }
-
 
 #define PrintStatus(val, flag)                                                 \
   if (val == flag)                                                             \
@@ -463,10 +487,8 @@ NTSTATUS DokanCheckOplock(
   (DOKAN_LOG_MAX_PACKET_BYTES / sizeof(WCHAR) - 1)
 
 VOID DokanPrintToSysLog(__in PDRIVER_OBJECT DriverObject,
-                        __in UCHAR MajorFunctionCode,
-                        __in NTSTATUS MessageId,
-                        __in NTSTATUS Status,
-                        __in LPCTSTR Format,
+                        __in UCHAR MajorFunctionCode, __in NTSTATUS MessageId,
+                        __in NTSTATUS Status, __in LPCTSTR Format,
                         __in va_list Args) {
   NTSTATUS status = STATUS_SUCCESS;
   PIO_ERROR_LOG_PACKET packet = NULL;
@@ -490,7 +512,8 @@ VOID DokanPrintToSysLog(__in PDRIVER_OBJECT DriverObject,
     if (status == STATUS_BUFFER_OVERFLOW) {
       // In this case we want to at least log what we can fit.
       DDbgPrint("Log message was larger than DOKAN_LOG_MAX_CHAR_COUNT."
-                " Format: %S\n", Format);
+                " Format: %S\n",
+                Format);
     } else if (status != STATUS_SUCCESS) {
       DDbgPrint("Failed to generate log message with format: %S; status: %x\n",
                 Format, status);
@@ -511,8 +534,8 @@ VOID DokanPrintToSysLog(__in PDRIVER_OBJECT DriverObject,
     for (i = 0; i < packetCount; i++) {
       packetCharCount = (UCHAR)min(messageCharCount - messageCharsWritten,
                                    DOKAN_LOG_MAX_PACKET_NONNULL_CHARS);
-      packetSize = sizeof(IO_ERROR_LOG_PACKET)
-          + sizeof(WCHAR) * (packetCharCount + 1);
+      packetSize =
+          sizeof(IO_ERROR_LOG_PACKET) + sizeof(WCHAR) * (packetCharCount + 1);
       packet = IoAllocateErrorLogEntry(DriverObject, packetSize);
       if (packet == NULL) {
         DDbgPrint("Failed to allocate packet of size %d\n", packetSize);
@@ -538,10 +561,8 @@ VOID DokanPrintToSysLog(__in PDRIVER_OBJECT DriverObject,
   }
 }
 
-NTSTATUS DokanLogError(__in PDOKAN_LOGGER Logger,
-                       __in NTSTATUS Status,
-                       __in LPCTSTR Format,
-                       ...) {
+NTSTATUS DokanLogError(__in PDOKAN_LOGGER Logger, __in NTSTATUS Status,
+                       __in LPCTSTR Format, ...) {
   va_list args;
   va_start(args, Format);
   DokanPrintToSysLog(Logger->DriverObject, Logger->MajorFunctionCode,
@@ -771,99 +792,72 @@ PointerAlignSize(ULONG sizeInBytes) {
 }
 
 #define DOKAN_RESOURCE_LOCK_DEBUG_INTERVAL_MSEC 10
-#define DOKAN_RESOURCE_LOCK_WARNING_MSEC 1000000  // 1 sec
+#define DOKAN_RESOURCE_LOCK_WARNING_MSEC 1000000 // 1 sec
 
 static const UNICODE_STRING noName = RTL_CONSTANT_STRING(L"<no name>");
 
-VOID DokanLockWarn(__in const ERESOURCE* Resource,
-                   __in const DokanResourceDebugInfo* DebugInfo,
-                   __in PDOKAN_LOGGER Logger,
-                   __in const char* Site,
-                   __in const UNICODE_STRING* ObjectName,
-                   __in const void* ObjectPointer) {
+VOID DokanLockWarn(__in const ERESOURCE *Resource,
+                   __in const DokanResourceDebugInfo *DebugInfo,
+                   __in PDOKAN_LOGGER Logger, __in const char *Site,
+                   __in const UNICODE_STRING *ObjectName,
+                   __in const void *ObjectPointer) {
   if (ObjectName == NULL || ObjectName->Length == 0) {
     ObjectName = &noName;
   }
 
   if (DebugInfo->ExclusiveOwnerThread != NULL) {
-    DokanLogInfo(
-        Logger,
-        L"Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
-            L" in thread %I64x at %S."
-            L" Current exclusive owner is thread %I64x"
-            L" with outermost lock at %S.",
-        ObjectName,
-        ObjectPointer,
-        Resource,
-        KeGetCurrentThread(),
-        Site,
-        DebugInfo->ExclusiveOwnerThread,
-        DebugInfo->ExclusiveLockSite);
+    DokanLogInfo(Logger,
+                 L"Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
+                 L" in thread %I64x at %S."
+                 L" Current exclusive owner is thread %I64x"
+                 L" with outermost lock at %S.",
+                 ObjectName, ObjectPointer, Resource, KeGetCurrentThread(),
+                 Site, DebugInfo->ExclusiveOwnerThread,
+                 DebugInfo->ExclusiveLockSite);
     // This is like DDbgPrint but gets written "unconditionally" as long as you
     // have the Debug Print Filter set up in the registry. Normal DDbgPrint
     // calls are utterly stripped from release builds. We know that
     // DokanLockWarn doesn't get invoked unless DriveFS is in lock debug mode,
     // so this is OK.
-    DbgPrintEx(
-        DPFLTR_IHVDRIVER_ID,
-        DPFLTR_TRACE_LEVEL,
-        "Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
-            " in thread %I64x at %s."
-            " Current exclusive owner is thread %I64x"
-            " with outermost lock at %s.\n",
-        ObjectName,
-        ObjectPointer,
-        Resource,
-        KeGetCurrentThread(),
-        Site,
-        DebugInfo->ExclusiveOwnerThread,
-        DebugInfo->ExclusiveLockSite);
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL,
+               "Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
+               " in thread %I64x at %s."
+               " Current exclusive owner is thread %I64x"
+               " with outermost lock at %s.\n",
+               ObjectName, ObjectPointer, Resource, KeGetCurrentThread(), Site,
+               DebugInfo->ExclusiveOwnerThread, DebugInfo->ExclusiveLockSite);
   } else {
-    DokanLogInfo(
-        Logger,
-        L"Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
-            L" in thread %I64x at %S."
-            L" This resource has an unknown shared lock.",
-        ObjectName,
-        ObjectPointer,
-        Resource,
-        KeGetCurrentThread(),
-        Site);
-    DbgPrintEx(
-        DPFLTR_IHVDRIVER_ID,
-        DPFLTR_TRACE_LEVEL,
-        "Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
-            " in thread %I64x at %s."
-            " This resource has an unknown shared lock.\n",
-        ObjectName,
-        ObjectPointer,
-        Resource,
-        KeGetCurrentThread(),
-        Site);
+    DokanLogInfo(Logger,
+                 L"Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
+                 L" in thread %I64x at %S."
+                 L" This resource has an unknown shared lock.",
+                 ObjectName, ObjectPointer, Resource, KeGetCurrentThread(),
+                 Site);
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL,
+               "Stuck trying to lock %wZ (%I64x with ERESOURCE %I64x)"
+               " in thread %I64x at %s."
+               " This resource has an unknown shared lock.\n",
+               ObjectName, ObjectPointer, Resource, KeGetCurrentThread(), Site);
   }
 }
 
-VOID DokanLockNotifyResolved(__in const ERESOURCE* Resource,
+VOID DokanLockNotifyResolved(__in const ERESOURCE *Resource,
                              __in PDOKAN_LOGGER Logger) {
   DokanLogInfo(Logger,
-      L"Blocking on ERESOURCE %I64x has resolved on thread %I64x",
-      Resource,
-      KeGetCurrentThread());
-  DbgPrintEx(
-      DPFLTR_IHVDRIVER_ID,
-      DPFLTR_TRACE_LEVEL,
-      "Blocking on ERESOURCE %I64x has resolved on thread %I64x",
-      Resource,
-      KeGetCurrentThread());
+               L"Blocking on ERESOURCE %I64x has resolved on thread %I64x",
+               Resource, KeGetCurrentThread());
+  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_TRACE_LEVEL,
+             "Blocking on ERESOURCE %I64x has resolved on thread %I64x",
+             Resource, KeGetCurrentThread());
 }
 
 VOID DokanResourceLockWithDebugInfo(__in BOOLEAN Writable,
                                     __in PERESOURCE Resource,
                                     __in PDokanResourceDebugInfo DebugInfo,
                                     __in PDOKAN_LOGGER Logger,
-                                    __in const char* Site,
-                                    __in const UNICODE_STRING* ObjectName,
-                                    __in const void* ObjectPointer) {
+                                    __in const char *Site,
+                                    __in const UNICODE_STRING *ObjectName,
+                                    __in const void *ObjectPointer) {
   // The wait is in 100ns units. Negative means "from now" as opposed to an
   // absolute wake up time.
   LARGE_INTEGER wait = RtlConvertLongToLargeInteger(
@@ -886,8 +880,8 @@ VOID DokanResourceLockWithDebugInfo(__in BOOLEAN Writable,
     KeQuerySystemTime(&systemTime);
     if (lastWarnTime.QuadPart == 0) {
       lastWarnTime = systemTime;
-    } else if ((systemTime.QuadPart - lastWarnTime.QuadPart) / 10
-               >= DOKAN_RESOURCE_LOCK_WARNING_MSEC) {
+    } else if ((systemTime.QuadPart - lastWarnTime.QuadPart) / 10 >=
+               DOKAN_RESOURCE_LOCK_WARNING_MSEC) {
       DokanLockWarn(Resource, DebugInfo, Logger, Site, ObjectName,
                     ObjectPointer);
       warned = TRUE;
@@ -910,9 +904,8 @@ VOID DokanResourceLockWithDebugInfo(__in BOOLEAN Writable,
   }
 }
 
-VOID DokanResourceUnlockWithDebugInfo(
-    __in PERESOURCE Resource,
-    __in PDokanResourceDebugInfo DebugInfo) {
+VOID DokanResourceUnlockWithDebugInfo(__in PERESOURCE Resource,
+                                      __in PDokanResourceDebugInfo DebugInfo) {
   if (ExIsResourceAcquiredExclusiveLite(Resource)) {
     if (--DebugInfo->ExclusiveLockCount == 0) {
       DebugInfo->ExclusiveLockSite = NULL;
@@ -934,26 +927,26 @@ BOOLEAN DokanVCBTryLockRW(PDokanVCB Vcb) {
 
 ULONG GetOplockControlDebugInfoBit(ULONG FsControlCode) {
   switch (FsControlCode) {
-    case FSCTL_REQUEST_OPLOCK_LEVEL_1:
-      return 1;
-    case FSCTL_REQUEST_OPLOCK_LEVEL_2:
-      return 2;
-    case FSCTL_REQUEST_BATCH_OPLOCK:
-      return 4;
-    case FSCTL_OPLOCK_BREAK_ACKNOWLEDGE:
-      return 8;
-    case FSCTL_OPBATCH_ACK_CLOSE_PENDING:
-      return 16;
-    case FSCTL_OPLOCK_BREAK_NOTIFY:
-      return 32;
-    case FSCTL_OPLOCK_BREAK_ACK_NO_2:
-      return 64;
-    case FSCTL_REQUEST_FILTER_OPLOCK:
-      return 128;
-    case FSCTL_REQUEST_OPLOCK:
-      return 256;
-    default:
-      return 65536;
+  case FSCTL_REQUEST_OPLOCK_LEVEL_1:
+    return 1;
+  case FSCTL_REQUEST_OPLOCK_LEVEL_2:
+    return 2;
+  case FSCTL_REQUEST_BATCH_OPLOCK:
+    return 4;
+  case FSCTL_OPLOCK_BREAK_ACKNOWLEDGE:
+    return 8;
+  case FSCTL_OPBATCH_ACK_CLOSE_PENDING:
+    return 16;
+  case FSCTL_OPLOCK_BREAK_NOTIFY:
+    return 32;
+  case FSCTL_OPLOCK_BREAK_ACK_NO_2:
+    return 64;
+  case FSCTL_REQUEST_FILTER_OPLOCK:
+    return 128;
+  case FSCTL_REQUEST_OPLOCK:
+    return 256;
+  default:
+    return 65536;
   }
 }
 
