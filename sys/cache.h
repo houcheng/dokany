@@ -13,6 +13,8 @@ class NONPAGESECTION BufferCache {
     FAST_MUTEX mutex = {0};
     KeyHash<InfoCacheEntry> cache;
 
+    int activityCount = 0;
+    ULONG64 lastCleanupTime = 0;
 public:
     BufferCache(int bufferLen);
     ~BufferCache();
@@ -22,4 +24,7 @@ public:
     BOOL getCache(UNICODE_STRING &unicodeString, void *buffer,
                                PIO_STATUS_BLOCK IoStatus);
     BOOL getCache(wstring *filename, void *buffer, PIO_STATUS_BLOCK IoStatus);
+
+private:
+    void cleanupCache();
 };

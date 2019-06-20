@@ -1,7 +1,10 @@
 #include "cache.h"
 #include "dokan.h"
 
-#define TIEMOUT 1000
+// Time and period are in unit of 100 ns
+#define TIMEOUT (2*10000000)
+#define CLEANUP_ACTIVITY_COUNT  1000
+#define CLEANUP_MIN_PERIOD      (5*10000000)
 
 BufferCache::BufferCache(int bufferLen) {
   this->bufferLen = bufferLen;
@@ -9,9 +12,12 @@ BufferCache::BufferCache(int bufferLen) {
 }
 
 BufferCache::~BufferCache() {
-  for (auto it = cache.first(); it; it = it->next()) {
+  for (auto it = cache.first(); it;) {
     free(it->data.buffer);
-    cache.del(it->key);
+
+    auto key = it->key;
+    it = it->next();
+    cache.del(key);
   }
 }
 
@@ -41,7 +47,9 @@ void BufferCache::addCache(wstring *filename, void *buffer) {
   KeQuerySystemTime(&entry.time);
   entry.buffer = clone(buffer, bufferLen);
   cache.add(filename, entry);
+
   // DbgPrint("Add cache for file: %wZ\n", &filename->content);
+  activityCount++;
 
   ExReleaseFastMutex(&mutex);
 }
@@ -56,11 +64,20 @@ BOOL BufferCache::getCache(wstring *filename, void *buffer,
   if (KeGetCurrentIrql() > APC_LEVEL)
     return FALSE;
 
+  ULONG now;
+  KeQuerySystemTime(&now);
+
   __try {
     ExAcquireFastMutex(&mutex);
     if (cache.contains(filename)) {
       InfoCacheEntry entry = {0};
       cache.get(filename, &entry);
+
+      if ((now - entry.time) > TIMEOUT) {
+          cache.del(filename);
+          __leave;
+      }
+
       if (entry.buffer) {
         RtlCopyMemory(buffer, entry.buffer, bufferLen);
 
@@ -72,10 +89,34 @@ BOOL BufferCache::getCache(wstring *filename, void *buffer,
       }
     }
   } __finally {
-    ExReleaseFastMutex(&mutex);
+      activityCount++;
+      if (activityCount > CLEANUP_ACTIVITY_COUNT && (now - lastCleanupTime) > CLEANUP_MIN_PERIOD)
+          cleanupCache();
+      ExReleaseFastMutex(&mutex);
   }
   return FALSE;
 }
+
+void BufferCache::cleanupCache() {
+    activityCount = 0;
+    lastCleanupTime = 0;
+
+    ULONG now;
+    KeQuerySystemTime(&now);
+    for (auto it = cache.first(); it;) {
+        if ((now - it->data.time) < TIMEOUT) {
+            it = it->next();
+            continue;
+        }
+
+        free(it->data.buffer);
+
+        auto key = it->key;
+        it = it->next();
+        cache.del(key);
+    }
+}
+
 
 BufferCache basicInfoCache(sizeof(FILE_BASIC_INFORMATION));
 BufferCache standardInfoCache(sizeof(FILE_STANDARD_INFORMATION));
