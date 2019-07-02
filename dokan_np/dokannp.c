@@ -53,7 +53,7 @@ static VOID DokanDbgPrintW(LPCWSTR format, ...) {
   va_end(argp);
 }
 
-#define DbgPrintW(format, ...) DokanDbgPrintW(format, __VA_ARGS__)
+#define DbgPrintW(format, ...) // DokanDbgPrintW(format, __VA_ARGS__)
 
 DWORD APIENTRY NPGetCaps(DWORD Index) {
   DWORD rc = 0;
