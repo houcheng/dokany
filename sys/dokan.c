@@ -280,9 +280,9 @@ Return Value:
   fastIoDispatch->FastIoCheckIfPossible = DokanFastIoCheckIfPossible;
   // fastIoDispatch->FastIoRead = DokanFastIoRead;
 
-  fastIoDispatch->FastIoQueryBasicInfo = DokanFastIoQueryBasicInfo;
-  fastIoDispatch->FastIoQueryStandardInfo = DokanFastIoQueryStandardInfo;
-  fastIoDispatch->FastIoQueryNetworkOpenInfo = DokanFastIoQueryNetworkOpenInfo;
+  // fastIoDispatch->FastIoQueryBasicInfo = DokanFastIoQueryBasicInfo;
+  // fastIoDispatch->FastIoQueryStandardInfo = DokanFastIoQueryStandardInfo;
+  // fastIoDispatch->FastIoQueryNetworkOpenInfo = DokanFastIoQueryNetworkOpenInfo;
 
   fastIoDispatch->FastIoRead = FsRtlCopyRead;
   fastIoDispatch->FastIoWrite = FsRtlCopyWrite;
